@@ -4,6 +4,7 @@ export function observe(initialize) {
   let stale = false;
   let value;
   let resolve;
+  let reject;
   const dispose = initialize(change);
 
   if (dispose != null && typeof dispose !== "function") {
@@ -13,7 +14,7 @@ export function observe(initialize) {
   }
 
   function change(x) {
-    if (resolve) resolve(x), resolve = null;
+    if (resolve) resolve(x), resolve = reject = null;
     else stale = true;
     return value = x;
   }
@@ -21,13 +22,18 @@ export function observe(initialize) {
   function next() {
     return {done: false, value: stale
         ? (stale = false, Promise.resolve(value))
-        : new Promise(_ => (resolve = _))};
+        : new Promise((res, rej) => (resolve = res, reject = rej))};
   }
 
   return {
     [Symbol.iterator]: that,
     throw: () => ({done: true}),
-    return: () => (dispose != null && dispose(), {done: true}),
+    return: () => {
+      dispose != null && dispose();
+      // Reject pending promises
+      if (reject) reject(new Error("Generator returned")), resolve = reject = null;
+      return {done: true};
+    },
     next
   };
 }

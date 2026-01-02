@@ -56,3 +56,19 @@ it("queue yields all values", async () => {
   assert.strictEqual(await q.next().value, 1);
   assert.strictEqual(await q.next().value, 2);
 });
+
+it("observe rejects pending promise on return", async () => {
+  let o = observe(() => {});
+  const pending = o.next().value;
+  o.return();
+  await assert.rejects(pending, /Generator returned/);
+});
+
+it("observe does not reject if no pending promise on return", async () => {
+  let o = observe(change => {
+    change(1);
+  });
+  assert.strictEqual(await o.next().value, 1);
+  // No pending promise, so return should complete without error
+  assert.deepStrictEqual(o.return(), {done: true});
+});
